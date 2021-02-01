@@ -308,7 +308,7 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 						logger = logger.WithJob(jobID).WithData(inputs)
 
 						// subStats is still valid even on an error, merge those in before proceeding
-						subStats, subRecovered, err := processDatum(driver, logger, index, inputs, data.OutputCommit, datumCache, statsCache, status)
+						subStats, subRecovered, err := processDatum(driver, logger, index, inputs, data.OutputCommit, datumCache, statsCache, status, data.Additive)
 
 						statsMutex.Lock()
 						defer statsMutex.Unlock()
@@ -384,6 +384,7 @@ func processDatum(
 	datumCache *hashtree.MergeCache,
 	datumStatsCache *hashtree.MergeCache,
 	status *Status,
+	additive bool,
 ) (_ *DatumStats, _ []string, retErr error) {
 	recoveredDatums := []string{}
 	stats := &DatumStats{}
@@ -398,7 +399,9 @@ func processDatum(
 		if err := datumCache.Put(uuid.NewWithoutDashes(), buf); err != nil {
 			return stats, recoveredDatums, err
 		}
-		if driver.PipelineInfo().EnableStats {
+		// ignore the stats hashtree for skipped datums if this job is additive, to avoid duplicating it
+		// when merging with the parent stats commit (which already contains this tree)
+		if driver.PipelineInfo().EnableStats && !additive {
 			buf.Reset()
 			if err := driver.PachClient().GetTag(tag+statsTagSuffix, buf); err != nil {
 				// We are okay with not finding the stats hashtree. This allows users to
@@ -436,6 +439,7 @@ func processDatum(
 			return stats, recoveredDatums, err
 		}
 		statsTree.PutFile("index", h, size, objectInfo.BlockRef)
+		statsTree.PutFile(fmt.Sprintf("index:%s", logger.JobID()), h, size, objectInfo.BlockRef)
 		defer func() {
 			logger.Logf("writing stats for datum: %s, current err: %v", tag, retErr)
 			if err := writeStats(driver, logger, stats.ProcessStats, inputTree, outputTree, statsTree, tag, datumStatsCache); err != nil && retErr == nil {
@@ -506,6 +510,7 @@ func processDatum(
 						return err
 					}
 					statsTree.PutFile("failure", h, size, objectInfo.BlockRef)
+					statsTree.PutFile(fmt.Sprintf("failure:%s", logger.JobID()), h, size, objectInfo.BlockRef)
 				}
 			}
 			return err
@@ -561,6 +566,7 @@ func writeStats(
 		return err
 	}
 	statsTree.PutFile("stats", h, size, objectInfo.BlockRef)
+	statsTree.PutFile(fmt.Sprintf("stats:%s", logger.JobID()), h, size, objectInfo.BlockRef)
 	// Store logs and add logs file
 	object, size, err = logger.Close()
 	if err != nil {

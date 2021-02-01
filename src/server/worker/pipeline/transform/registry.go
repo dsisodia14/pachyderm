@@ -426,7 +426,7 @@ func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatu
 			return err
 		}
 
-		taskData, err := serializeDatumData(&DatumData{DatumsObject: objectName, OutputCommit: pj.ji.OutputCommit, JobID: pj.ji.Job.ID})
+		taskData, err := serializeDatumData(&DatumData{DatumsObject: objectName, OutputCommit: pj.ji.OutputCommit, JobID: pj.ji.Job.ID, Additive: pj.jdit.AdditiveOnly()})
 		if err != nil {
 			return err
 		}

@@ -63,6 +63,7 @@ message DatumData {
   string job_id = 1 [(gogoproto.customname) = "JobID"];
   string datums_object = 8;
   pfs.Commit output_commit = 3;
+  bool additive = 9;
 
   // Outputs
   DatumStats stats = 4;

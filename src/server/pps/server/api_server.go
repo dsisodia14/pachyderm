@@ -1362,17 +1362,56 @@ func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *
 	if err != nil {
 		return nil, err
 	}
-	if len(fileInfos) != 1 {
+	if len(fileInfos) == 0 {
 		return nil, errors.Errorf("couldn't find job file")
 	}
-	if strings.Split(fileInfos[0].File.Path, ":")[1] != jobID {
+	taggedStats, err := pachClient.GlobFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/stats:*", datumID))
+	if err != nil {
+		return nil, err
+	}
+
+	var fileSuffix string
+	var found bool
+	for _, info := range fileInfos {
+		if strings.Split(info.File.Path, ":")[1] == jobID {
+			found = true
+		}
+	}
+	if found {
+		if len(taggedStats) > 0 {
+			fileSuffix = fmt.Sprintf(":%s", jobID) // rely on tagged files
+		} else if len(fileInfos) > 1 {
+			return nil, errors.Errorf("found ambiguous combined job data")
+		} else {
+			fileSuffix = "" // fall back to combined job case
+		}
+	} else {
 		datumInfo.State = pps.DatumState_SKIPPED
+
+		testFile := &pfs.File{
+			Commit: commit,
+		}
+		// find a previous job to retrieve data from
+		var foundSuccess bool
+		for _, stats := range taggedStats {
+			fileSuffix = ":" + strings.Split(stats.File.Path, ":")[1]
+			testFile.Path = fmt.Sprintf("/%v/failure%s", datumID, fileSuffix)
+			if _, err = pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{File: testFile}); isNotFoundErr(err) {
+				foundSuccess = true
+				break
+			} else if err != nil {
+				return nil, err
+			}
+		}
+		if !foundSuccess && len(fileInfos) > 1 {
+			return nil, errors.Errorf("found ambiguous combined job data")
+		}
 	}
 
 	// Check if failed
 	stateFile := &pfs.File{
 		Commit: commit,
-		Path:   fmt.Sprintf("/%v/failure", datumID),
+		Path:   fmt.Sprintf("/%v/failure%s", datumID, fileSuffix),
 	}
 	_, err = pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{File: stateFile})
 	if err == nil {
@@ -1383,7 +1422,7 @@ func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *
 
 	// Populate stats
 	var buffer bytes.Buffer
-	if err := pachClient.GetFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/stats", datumID), 0, 0, &buffer); err != nil {
+	if err := pachClient.GetFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/stats%s", datumID, fileSuffix), 0, 0, &buffer); err != nil {
 		return nil, err
 	}
 	stats := &pps.ProcessStats{}
@@ -1393,7 +1432,7 @@ func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *
 	}
 	datumInfo.Stats = stats
 	buffer.Reset()
-	if err := pachClient.GetFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/index", datumID), 0, 0, &buffer); err != nil {
+	if err := pachClient.GetFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/index%s", datumID, fileSuffix), 0, 0, &buffer); err != nil {
 		return nil, err
 	}
 	i, err := strconv.Atoi(buffer.String())
