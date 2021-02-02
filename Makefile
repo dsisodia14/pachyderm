@@ -250,8 +250,8 @@ test-pfs-server:
 
 test-pfs-storage:
 	./etc/testing/start_postgres.sh
-	- go test  -count=1 ./src/internal/storage/... -timeout $(TIMEOUT) 2>&1 | tee -a test.out
-	- go test -count=1 ./src/internal/migrations/... 2>&1 | tee -a test.out
+	- go test -v -count=1 ./src/internal/storage/... -timeout $(TIMEOUT) 2>&1 | tee -a test.out
+	- go test -v -count=1 ./src/internal/migrations/... 2>&1 | tee -a test.out
 
 test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
 	@# Use the count flag to disable test caching for this test suite.
@@ -269,20 +269,20 @@ test-cmds:
 	- go test -v -count=1 ./src/server/identity/cmds -timeout $(TIMEOUT) | tee -a test.out
 
 test-transaction:
-	- go test -count=1 ./src/server/transaction/server/testing -timeout $(TIMEOUT) | tee -a test.out
+	- go test -v -count=1 ./src/server/transaction/server/testing -timeout $(TIMEOUT) | tee -a test.out
 
 test-client:
-	- go test -count=1 -cover $$(go list ./src/client/...) | tee -a test.out
+	- go test -v -count=1 -cover $$(go list ./src/client/...) | tee -a test.out
 
 test-object-clients:
 	# The parallelism is lowered here because these tests run several pachd
 	# deployments in kubernetes which may contest resources.
-	- go test -count=1 ./src/internal/obj/testing -timeout $(TIMEOUT) -parallel=2 | tee -a test.out 
-	- go test -count=1 ./src/internal/obj/testing -timeout $(TIMEOUT) -parallel=2 | tee -a test.out 
-	- go test -count=1 ./src/internal/grpcutil -timeout $(TIMEOUT) | tee -a test.out 
-	- go test -count=1 ./src/internal/collection -timeout $(TIMEOUT) -vet=off | tee -a test.out 
-	- go test -count=1 ./src/internal/cert -timeout $(TIMEOUT) | tee -a test.out 
-	- go test -count=1 ./src/internal/work -timeout $(TIMEOUT) | tee -a test.out 
+	- go test -v -count=1 ./src/internal/obj/testing -timeout $(TIMEOUT) -parallel=2 | tee -a test.out 
+	- go test -v -count=1 ./src/internal/obj/testing -timeout $(TIMEOUT) -parallel=2 | tee -a test.out 
+	- go test -v -count=1 ./src/internal/grpcutil -timeout $(TIMEOUT) | tee -a test.out 
+	- go test -v -count=1 ./src/internal/collection -timeout $(TIMEOUT) -vet=off | tee -a test.out 
+	- go test -v -count=1 ./src/internal/cert -timeout $(TIMEOUT) | tee -a test.out 
+	- go test -v -count=1 ./src/internal/work -timeout $(TIMEOUT) | tee -a test.out 
 
 test-vault:
 	kill $$(cat /tmp/vault.pid) || true
@@ -311,10 +311,10 @@ test-vault:
 #	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT)
 
 test-fuse:
-	- CGOENABLED=0 go test -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse') | tee -a test.out 
+	- CGOENABLED=0 go test -v -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse') | tee -a test.out 
 
 test-local:
-	- CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT) | tee -a test.out  
+	- CGOENABLED=0 go test -v -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT) | tee -a test.out  
 
 test-auth:
 	yes | pachctl delete all
