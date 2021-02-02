@@ -224,8 +224,7 @@ test-proto-static:
 	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run 'DOCKER_BUILD_FLAGS=--no-cache make proto'."
 
 test-deploy-manifests: install
-	./etc/testing/deploy-manifests/validate.sh
-
+	./etc/testing/deploy-manifests/validate.sh 
 regenerate-test-deploy-manifests: install
 	./etc/testing/deploy-manifests/validate.sh --regenerate
 
@@ -251,8 +250,8 @@ test-pfs-server:
 
 test-pfs-storage:
 	./etc/testing/start_postgres.sh
-	go test  -count=1 ./src/internal/storage/... -timeout $(TIMEOUT)
-	go test -count=1 ./src/internal/migrations/...
+	- go test  -count=1 ./src/internal/storage/... -timeout $(TIMEOUT) 2>&1 | tee -a test.out
+	- go test -count=1 ./src/internal/migrations/... 2>&1 | tee -a test.out
 
 test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
 	@# Use the count flag to disable test caching for this test suite.
@@ -261,38 +260,36 @@ test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
 
 test-cmds:
 	go install -v ./src/testing/match
-	CGOENABLED=0 go test -v -count=1 ./src/server/cmd/pachctl/cmd
-	go test -v -count=1 ./src/internal/deploy/cmds -timeout $(TIMEOUT)
-	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT)
-	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT)
-	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT)
-	@# TODO(msteffen) does this test leave auth active? If so it must run last
-	go test -v -count=1 ./src/server/auth/cmds -timeout $(TIMEOUT)
-	go test -v -count=1 ./src/server/identity/cmds -timeout $(TIMEOUT)
+	- CGOENABLED=0 go test -v -count=1 ./src/server/cmd/pachctl/cmd | tee -a test.out
+	- go test -v -count=1 ./src/internal/deploy/cmds -timeout $(TIMEOUT) | tee -a test.out
+	- go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT)| tee -a test.out
+	- go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT) | tee -a test.out
+	- go test -v -count=1 ./src/server/config -timeout $(TIMEOUT) | tee -a test.out
+	- go test -v -count=1 ./src/server/auth/cmds -timeout $(TIMEOUT) | tee -a test.out
+	- go test -v -count=1 ./src/server/identity/cmds -timeout $(TIMEOUT) | tee -a test.out
 
 test-transaction:
-	go test -count=1 ./src/server/transaction/server/testing -timeout $(TIMEOUT)
+	- go test -count=1 ./src/server/transaction/server/testing -timeout $(TIMEOUT) | tee -a test.out
 
 test-client:
-	go test -count=1 -cover $$(go list ./src/client/...)
+	- go test -count=1 -cover $$(go list ./src/client/...) | tee -a test.out
 
 test-object-clients:
 	# The parallelism is lowered here because these tests run several pachd
 	# deployments in kubernetes which may contest resources.
-	go test -count=1 ./src/internal/obj/testing -timeout $(TIMEOUT) -parallel=2
-
-test-libs:
-	go test -count=1 ./src/internal/grpcutil -timeout $(TIMEOUT)
-	go test -count=1 ./src/internal/collection -timeout $(TIMEOUT) -vet=off
-	go test -count=1 ./src/internal/cert -timeout $(TIMEOUT)
-	go test -count=1 ./src/internal/work -timeout $(TIMEOUT)
+	- go test -count=1 ./src/internal/obj/testing -timeout $(TIMEOUT) -parallel=2 | tee -a test.out 
+	- go test -count=1 ./src/internal/obj/testing -timeout $(TIMEOUT) -parallel=2 | tee -a test.out 
+	- go test -count=1 ./src/internal/grpcutil -timeout $(TIMEOUT) | tee -a test.out 
+	- go test -count=1 ./src/internal/collection -timeout $(TIMEOUT) -vet=off | tee -a test.out 
+	- go test -count=1 ./src/internal/cert -timeout $(TIMEOUT) | tee -a test.out 
+	- go test -count=1 ./src/internal/work -timeout $(TIMEOUT) | tee -a test.out 
 
 test-vault:
 	kill $$(cat /tmp/vault.pid) || true
 	./src/plugin/vault/etc/start-vault.sh
 	./src/plugin/vault/etc/pach-auth.sh --activate
 	./src/plugin/vault/etc/setup-vault.sh
-	go test -v -count=1 ./src/plugin/vault -timeout $(TIMEOUT)
+	- go test -v -count=1 ./src/plugin/vault -timeout $(TIMEOUT) | tee -a test.out 
 	./src/plugin/vault/etc/pach-auth.sh --delete-all
 
 # TODO: Readd when s3 gateway is implemented in V2.
@@ -314,24 +311,23 @@ test-vault:
 #	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT)
 
 test-fuse:
-	CGOENABLED=0 go test -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse')
+	- CGOENABLED=0 go test -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse') | tee -a test.out 
 
 test-local:
-	CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
+	- CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT) | tee -a test.out  
 
 test-auth:
 	yes | pachctl delete all
-	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN)
+	- go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN) | tee -a test.out 
 
 test-identity:
-	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) $(RUN)
-
+	- go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) $(RUN) | tee -a test.out 
 
 test-admin:
-	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) $(RUN)
+	- go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) $(RUN) | tee -a test.out 
 
 test-enterprise:
-	go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT)
+	- go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT) | tee -a test.out 
 
 test-tls:
 	./etc/testing/test_tls.sh
@@ -339,8 +335,8 @@ test-tls:
 test-worker: launch-stats test-worker-helper
 
 test-worker-helper:
-	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v -count=1 ./src/server/worker/ -timeout $(TIMEOUT)
+	- PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
+	  go test -v -count=1 ./src/server/worker/ -timeout $(TIMEOUT) | tee -a test.out
 
 clean: clean-launch clean-launch-kube
 
