@@ -256,7 +256,7 @@ test-pfs-storage:
 test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v -count=1 ./src/server -parallel 1 -timeout $(TIMEOUT) $(RUN)
+	  go test -v -count=1 ./src/server -parallel 1 -timeout $(TIMEOUT) $(RUN) | tee -a test.out
 
 test-cmds:
 	go install -v ./src/testing/match
