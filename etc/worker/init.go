@@ -12,8 +12,14 @@ func cp(src, dst string) error {
 	}
 	defer in.Close()
 
-	out, err := os.Create(dst)
-	if err != nil {
+	// create destination, requiring that it not exist
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_RDWR|os.O_EXCL, 0666)
+	if os.IsExist(err) {
+		// assume the file is correct, and we don't need to copy
+		// this is necessary to make the init container idempotent,
+		// and avoid crashes if it is somehow restarted
+		return nil
+	} else if err != nil {
 		return err
 	}
 	defer out.Close()
